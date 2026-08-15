@@ -110,12 +110,14 @@
     border-radius: 12px;
     border: 1px solid var(--border);
     background: var(--card);
+    direction: ltr; /* ID على الشمال زي الورقة */
   }
   table {
     width: 100%;
     border-collapse: collapse;
     min-width: 1600px;
     font-size: 0.8rem;
+    direction: ltr;
   }
   th {
     background: #15202b;
@@ -146,7 +148,7 @@
     height: 18px;
     accent-color: var(--success);
   }
-  .id-cell { font-weight: 700; color: var(--primary); min-width: 50px; }
+  .id-cell { font-weight: 700; color: var(--primary); min-width: 70px; }
   .actions-cell { white-space: nowrap; }
   .actions-cell button {
     padding: 4px 8px;
@@ -277,8 +279,8 @@
   </div>
 
   <div class="footer-bar">
-    <span>الرقم التالي: <strong id="nextIdDisplay">1</strong></span>
     <span id="lastScan">آخر مسح: —</span>
+    <span id="lastId">آخر ID: —</span>
   </div>
 </div>
 
@@ -311,10 +313,6 @@
         <label>Actual Sheet Loaded (افتراضي)</label>
         <input type="number" id="setActualLoaded" value="1" min="0">
       </div>
-      <div>
-        <label>الرقم التالي للـ ID</label>
-        <input type="number" id="setNextId" value="1" min="1">
-      </div>
     </div>
     <div style="margin-top:16px">
       <label>القيم الافتراضية للجودة</label>
@@ -334,13 +332,13 @@
 </div>
 
 <script>
-const STORAGE_KEY = 'sheetTrackerData_v1';
-const SETTINGS_KEY = 'sheetTrackerSettings_v1';
+const STORAGE_KEY = 'sheetTrackerData_v2';
+const SETTINGS_KEY = 'sheetTrackerSettings_v2';
 
 let rows = [];
-let nextId = 1;
 let html5QrCode = null;
 let scanning = false;
+let lastScanned = null; // لمنع المسح المتكرر لنفس الكود بسرعة
 
 const defaults = {
   date: new Date().toISOString().slice(0,10),
@@ -360,7 +358,6 @@ function loadSettings() {
   try {
     const s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
     Object.assign(defaults, s);
-    nextId = s.nextId || 1;
   } catch(e) {}
   document.getElementById('setDate').value = defaults.date;
   document.getElementById('setThickness').value = defaults.thickness;
@@ -368,13 +365,11 @@ function loadSettings() {
   document.getElementById('setWidth').value = defaults.width;
   document.getElementById('setSheetsOnId').value = defaults.sheetsOnId;
   document.getElementById('setActualLoaded').value = defaults.actualLoaded;
-  document.getElementById('setNextId').value = nextId;
   document.getElementById('defEdge').checked = defaults.edge;
   document.getElementById('defScratches').checked = defaults.scratches;
   document.getElementById('defLogo').checked = defaults.logo;
   document.getElementById('defBranding').checked = defaults.branding;
   document.getElementById('defAirSide').checked = defaults.airSide;
-  document.getElementById('nextIdDisplay').textContent = nextId;
 }
 
 function saveSettings() {
@@ -384,15 +379,13 @@ function saveSettings() {
   defaults.width = document.getElementById('setWidth').value;
   defaults.sheetsOnId = parseInt(document.getElementById('setSheetsOnId').value) || 1;
   defaults.actualLoaded = parseInt(document.getElementById('setActualLoaded').value) || 0;
-  nextId = parseInt(document.getElementById('setNextId').value) || 1;
   defaults.edge = document.getElementById('defEdge').checked;
   defaults.scratches = document.getElementById('defScratches').checked;
   defaults.logo = document.getElementById('defLogo').checked;
   defaults.branding = document.getElementById('defBranding').checked;
   defaults.airSide = document.getElementById('defAirSide').checked;
 
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify({...defaults, nextId}));
-  document.getElementById('nextIdDisplay').textContent = nextId;
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(defaults));
   closeSettings();
 }
 
@@ -410,7 +403,17 @@ function nowTime() {
 }
 
 function createRow(data = {}) {
-  const id = data.id || nextId++;
+  const id = (data.id || '').toString().trim();
+  if (!id) {
+    alert('مفيش ID');
+    return null;
+  }
+  // منع تكرار نفس الـ ID
+  if (rows.some(r => r.id === id)) {
+    alert('الـ ID ده موجود قبل كده: ' + id);
+    return null;
+  }
+
   const row = {
     id,
     productionDate: data.productionDate || defaults.date,
@@ -432,8 +435,8 @@ function createRow(data = {}) {
   rows.push(row);
   persist();
   renderTable();
-  document.getElementById('nextIdDisplay').textContent = nextId;
   document.getElementById('lastScan').textContent = 'آخر مسح: ' + nowTime();
+  document.getElementById('lastId').textContent = 'آخر ID: ' + id;
   return row;
 }
 
@@ -487,12 +490,15 @@ function deleteRow(idx) {
 }
 
 function addManualRow() {
-  createRow();
+  const id = prompt('اكتب الـ ID Sheet #:');
+  if (id && id.trim()) {
+    createRow({ id: id.trim() });
+  }
 }
 
 function persist() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify({...defaults, nextId}));
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(defaults));
 }
 
 function loadData() {
@@ -516,7 +522,7 @@ function exportCSV() {
   const csvRows = [headers.join(',')];
   rows.forEach(r => {
     csvRows.push([
-      r.id,
+      `"${r.id}"`,
       r.productionDate,
       `"${r.thickness}"`,
       `"${r.length}"`,
@@ -543,50 +549,66 @@ function exportCSV() {
   URL.revokeObjectURL(url);
 }
 
+async function stopScanner() {
+  if (html5QrCode && scanning) {
+    try {
+      await html5QrCode.stop();
+      html5QrCode.clear();
+    } catch(e) {}
+  }
+  scanning = false;
+  document.getElementById('scannerCard').classList.add('hidden');
+}
+
 async function toggleScanner() {
   const card = document.getElementById('scannerCard');
   if (scanning) {
-    if (html5QrCode) {
-      await html5QrCode.stop().catch(()=>{});
-      html5QrCode.clear();
-    }
-    scanning = false;
-    card.classList.add('hidden');
+    await stopScanner();
     return;
   }
   card.classList.remove('hidden');
   scanning = true;
+  lastScanned = null;
   document.getElementById('scanStatus').textContent = 'جاري تشغيل الكاميرا...';
 
   html5QrCode = new Html5Qrcode('reader');
   try {
     await html5QrCode.start(
       { facingMode: 'environment' },
-      { fps: 10, qrbox: { width: 250, height: 250 } },
+      { fps: 8, qrbox: { width: 250, height: 250 } },
       onScanSuccess,
       () => {}
     );
-    document.getElementById('scanStatus').textContent = 'وجّه الكاميرا على الـ QR Code';
+    document.getElementById('scanStatus').textContent = 'وجّه الكاميرا على الـ QR Code (مرة واحدة فقط)';
   } catch (err) {
-    document.getElementById('scanStatus').textContent = 'خطأ في الكاميرا: ' + err;
+    document.getElementById('scanStatus').textContent = 'خطأ في الكاميرا: ' + err + ' — لازم HTTPS';
     scanning = false;
   }
 }
 
 function onScanSuccess(decodedText) {
-  // أي QR يضيف سطر جديد بالرقم التالي
-  // لو الـ QR فيه رقم، ممكن نستخدمه، لكن حسب الوصف نستخدم التسلسلي
-  createRow();
-  // صوت بسيط
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    osc.frequency.value = 800;
-    osc.connect(ctx.destination);
-    osc.start();
-    setTimeout(() => osc.stop(), 100);
-  } catch(e) {}
-  document.getElementById('scanStatus').textContent = 'تم المسح ✓ ID: ' + (nextId - 1);
+  const id = decodedText.trim();
+  if (!id) return;
+  if (id === lastScanned) return; // منع المسح المتكرر فوراً
+
+  lastScanned = id;
+  const added = createRow({ id });
+
+  if (added) {
+    // صوت نجاح
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      osc.frequency.value = 880;
+      osc.connect(ctx.destination);
+      osc.start();
+      setTimeout(() => osc.stop(), 120);
+    } catch(e) {}
+
+    document.getElementById('scanStatus').textContent = 'تم ✓ ID: ' + id;
+    // يقفل الماسح تلقائي بعد المسح الناجح عشان يمسح مرة واحدة بس
+    setTimeout(() => stopScanner(), 600);
+  }
 }
 
 // init
