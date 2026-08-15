@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>نظام تسجيل شيتات الإنتاج</title>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
   :root {
     --bg: #0f1419;
@@ -32,22 +33,39 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
     flex-wrap: wrap;
     gap: 10px;
   }
   h1 {
-    font-size: 1.35rem;
+    font-size: 1.25rem;
     font-weight: 700;
     color: #fff;
   }
-  .badge {
-    background: var(--primary);
-    color: white;
-    padding: 4px 10px;
-    border-radius: 20px;
-    font-size: 0.8rem;
+  .stats {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
   }
+  .stat-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 14px;
+    text-align: center;
+    min-width: 110px;
+  }
+  .stat-label {
+    font-size: 0.7rem;
+    color: var(--muted);
+    margin-bottom: 2px;
+  }
+  .stat-value {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #fff;
+  }
+  .stat-value.qsm { color: #34d399; }
   .controls {
     display: flex;
     gap: 8px;
@@ -110,7 +128,7 @@
     border-radius: 12px;
     border: 1px solid var(--border);
     background: var(--card);
-    direction: ltr; /* ID على الشمال زي الورقة */
+    direction: ltr;
   }
   table {
     width: 100%;
@@ -223,8 +241,9 @@
     font-size: 0.85rem;
   }
   @media (max-width: 600px) {
-    h1 { font-size: 1.1rem; }
+    h1 { font-size: 1.05rem; }
     button { padding: 8px 12px; font-size: 0.85rem; }
+    .stat-box { min-width: 90px; padding: 6px 10px; }
   }
 </style>
 </head>
@@ -232,14 +251,23 @@
 <div class="container">
   <header>
     <h1>📋 نظام تسجيل شيتات الإنتاج</h1>
-    <span class="badge" id="rowCount">0 شيت</span>
+    <div class="stats">
+      <div class="stat-box">
+        <div class="stat-label">Total Sheets</div>
+        <div class="stat-value" id="totalSheets">0</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">QSM</div>
+        <div class="stat-value qsm" id="qsmValue">0</div>
+      </div>
+    </div>
   </header>
 
   <div class="controls">
     <button id="btnScan" onclick="toggleScanner()">📷 مسح QR</button>
     <button class="secondary" onclick="addManualRow()">➕ إضافة يدوي</button>
     <button class="secondary" onclick="openSettings()">⚙️ الإعدادات</button>
-    <button class="success" onclick="exportCSV()">⬇️ تصدير CSV</button>
+    <button class="success" onclick="exportImage()">📷 حفظ كصورة</button>
     <button class="danger" onclick="clearAll()">🗑️ مسح الكل</button>
   </div>
 
@@ -249,7 +277,7 @@
     <button class="secondary" style="width:100%" onclick="toggleScanner()">إغلاق الماسح</button>
   </div>
 
-  <div class="table-wrap">
+  <div class="table-wrap" id="captureArea">
     <table id="dataTable">
       <thead>
         <tr>
@@ -295,23 +323,23 @@
       </div>
       <div>
         <label>Thickness</label>
-        <input type="text" id="setThickness" placeholder="مثال: 4mm">
+        <input type="text" id="setThickness" placeholder="مثال: 6">
       </div>
       <div>
         <label>Length</label>
-        <input type="text" id="setLength" placeholder="مثال: 3210">
+        <input type="text" id="setLength" placeholder="مثال: 3660">
       </div>
       <div>
         <label>Width</label>
-        <input type="text" id="setWidth" placeholder="مثال: 2250">
+        <input type="text" id="setWidth" placeholder="مثال: 2140">
       </div>
       <div>
         <label>Sheets on ID</label>
-        <input type="number" id="setSheetsOnId" value="1" min="1">
+        <input type="number" id="setSheetsOnId" value="17" min="1">
       </div>
       <div>
         <label>Actual Sheet Loaded (افتراضي)</label>
-        <input type="number" id="setActualLoaded" value="1" min="0">
+        <input type="number" id="setActualLoaded" value="17" min="0">
       </div>
     </div>
     <div style="margin-top:16px">
@@ -319,9 +347,9 @@
       <div class="check-group">
         <label class="check-item"><input type="checkbox" id="defEdge" checked> Edge Quality</label>
         <label class="check-item"><input type="checkbox" id="defScratches" checked> No Scratches</label>
-        <label class="check-item"><input type="checkbox" id="defLogo" checked> No Logo</label>
-        <label class="check-item"><input type="checkbox" id="defBranding" checked> No Branding</label>
-        <label class="check-item"><input type="checkbox" id="defAirSide" checked> Air Side</label>
+        <label class="check-item"><input type="checkbox" id="defLogo"> No Logo</label>
+        <label class="check-item"><input type="checkbox" id="defBranding"> No Branding</label>
+        <label class="check-item"><input type="checkbox" id="defAirSide"> Air Side</label>
       </div>
     </div>
     <div class="modal-actions">
@@ -332,26 +360,26 @@
 </div>
 
 <script>
-const STORAGE_KEY = 'sheetTrackerData_v2';
-const SETTINGS_KEY = 'sheetTrackerSettings_v2';
+const STORAGE_KEY = 'sheetTrackerData_v3';
+const SETTINGS_KEY = 'sheetTrackerSettings_v3';
 
 let rows = [];
 let html5QrCode = null;
 let scanning = false;
-let lastScanned = null; // لمنع المسح المتكرر لنفس الكود بسرعة
+let lastScanned = null;
 
 const defaults = {
   date: new Date().toISOString().slice(0,10),
-  thickness: '',
-  length: '',
-  width: '',
-  sheetsOnId: 1,
-  actualLoaded: 1,
+  thickness: '6',
+  length: '3660',
+  width: '2140',
+  sheetsOnId: 17,
+  actualLoaded: 17,
   edge: true,
   scratches: true,
-  logo: true,
-  branding: true,
-  airSide: true
+  logo: false,
+  branding: false,
+  airSide: false
 };
 
 function loadSettings() {
@@ -386,6 +414,7 @@ function saveSettings() {
   defaults.airSide = document.getElementById('defAirSide').checked;
 
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(defaults));
+  updateTotals();
   closeSettings();
 }
 
@@ -408,7 +437,6 @@ function createRow(data = {}) {
     alert('مفيش ID');
     return null;
   }
-  // منع تكرار نفس الـ ID
   if (rows.some(r => r.id === id)) {
     alert('الـ ID ده موجود قبل كده: ' + id);
     return null;
@@ -440,14 +468,24 @@ function createRow(data = {}) {
   return row;
 }
 
+function updateTotals() {
+  const total = rows.reduce((sum, r) => sum + (Number(r.actualLoaded) || 0), 0);
+  document.getElementById('totalSheets').textContent = total;
+
+  const len = parseFloat(defaults.length) || 0;
+  const wid = parseFloat(defaults.width) || 0;
+  const qsm = total * len * wid;
+  document.getElementById('qsmValue').textContent = qsm.toLocaleString('en-US');
+}
+
 function renderTable() {
   const tbody = document.getElementById('tableBody');
   const empty = document.getElementById('emptyState');
-  document.getElementById('rowCount').textContent = rows.length + ' شيت';
 
   if (rows.length === 0) {
     tbody.innerHTML = '';
     empty.style.display = 'block';
+    updateTotals();
     return;
   }
   empty.style.display = 'none';
@@ -466,7 +504,7 @@ function renderTable() {
       <td><input type="checkbox" ${r.airSide?'checked':''} onchange="updateField(${idx},'airSide',this.checked)"></td>
       <td><input type="time" value="${r.loadingTime.slice(0,5)}" step="1" onchange="updateField(${idx},'loadingTime',this.value+':00')"></td>
       <td><input type="number" value="${r.sheetsOnId}" min="0" onchange="updateField(${idx},'sheetsOnId',+this.value)" style="width:55px"></td>
-      <td><input type="number" value="${r.actualLoaded}" min="0" onchange="updateField(${idx},'actualLoaded',+this.value)" style="width:55px"></td>
+      <td><input type="number" value="${r.actualLoaded}" min="0" onchange="updateField(${idx},'actualLoaded',+this.value); updateTotals()" style="width:55px"></td>
       <td><input type="text" value="${r.whSig}" onchange="updateField(${idx},'whSig',this.value)" style="width:80px"></td>
       <td><input type="text" value="${r.qualitySig}" onchange="updateField(${idx},'qualitySig',this.value)" style="width:80px"></td>
       <td><input type="text" value="${r.comment}" onchange="updateField(${idx},'comment',this.value)" style="width:100px"></td>
@@ -475,11 +513,13 @@ function renderTable() {
       </td>
     </tr>
   `).join('');
+  updateTotals();
 }
 
 function updateField(idx, key, val) {
   rows[idx][key] = val;
   persist();
+  if (key === 'actualLoaded' || key === 'length' || key === 'width') updateTotals();
 }
 
 function deleteRow(idx) {
@@ -516,37 +556,26 @@ function clearAll() {
   renderTable();
 }
 
-function exportCSV() {
+async function exportImage() {
   if (rows.length === 0) { alert('لا توجد بيانات'); return; }
-  const headers = ['ID Sheet #','Production Date','Thickness','Length','Width','Edge Quality is good','No Scratches','No Logo Mark','No Branding','Air Side','Loading Time','Sheets on ID','Actual Sheet Loaded','WH Signature','Quality Signature','Comment'];
-  const csvRows = [headers.join(',')];
-  rows.forEach(r => {
-    csvRows.push([
-      `"${r.id}"`,
-      r.productionDate,
-      `"${r.thickness}"`,
-      `"${r.length}"`,
-      `"${r.width}"`,
-      r.edge ? 'Yes' : 'No',
-      r.scratches ? 'Yes' : 'No',
-      r.logo ? 'Yes' : 'No',
-      r.branding ? 'Yes' : 'No',
-      r.airSide ? 'Yes' : 'No',
-      r.loadingTime,
-      r.sheetsOnId,
-      r.actualLoaded,
-      `"${r.whSig}"`,
-      `"${r.qualitySig}"`,
-      `"${r.comment}"`
-    ].join(','));
-  });
-  const blob = new Blob(['\uFEFF' + csvRows.join('\n')], {type: 'text/csv;charset=utf-8;'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `sheets_${defaults.date || 'export'}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+  const el = document.getElementById('captureArea');
+  const empty = document.getElementById('emptyState');
+  empty.style.display = 'none';
+
+  try {
+    const canvas = await html2canvas(el, {
+      backgroundColor: '#1a2332',
+      scale: 2,
+      useCORS: true,
+      logging: false
+    });
+    const link = document.createElement('a');
+    link.download = `sheets_${defaults.date || 'export'}_${Date.now()}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  } catch (e) {
+    alert('خطأ في حفظ الصورة: ' + e.message);
+  }
 }
 
 async function stopScanner() {
@@ -589,13 +618,12 @@ async function toggleScanner() {
 function onScanSuccess(decodedText) {
   const id = decodedText.trim();
   if (!id) return;
-  if (id === lastScanned) return; // منع المسح المتكرر فوراً
+  if (id === lastScanned) return;
 
   lastScanned = id;
   const added = createRow({ id });
 
   if (added) {
-    // صوت نجاح
     try {
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
       const osc = ctx.createOscillator();
@@ -606,12 +634,10 @@ function onScanSuccess(decodedText) {
     } catch(e) {}
 
     document.getElementById('scanStatus').textContent = 'تم ✓ ID: ' + id;
-    // يقفل الماسح تلقائي بعد المسح الناجح عشان يمسح مرة واحدة بس
     setTimeout(() => stopScanner(), 600);
   }
 }
 
-// init
 loadData();
 </script>
 </body>
