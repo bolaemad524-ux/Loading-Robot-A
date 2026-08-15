@@ -6,6 +6,8 @@
 <title>نظام تسجيل شيتات الإنتاج</title>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <style>
   :root {
     --bg: #0f1419;
@@ -240,6 +242,12 @@
     gap: 6px;
     font-size: 0.85rem;
   }
+  .sync-status {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+  .sync-status.online { color: #34d399; }
   @media (max-width: 600px) {
     h1 { font-size: 1.05rem; }
     button { padding: 8px 12px; font-size: 0.85rem; }
@@ -270,6 +278,7 @@
     <button class="success" onclick="exportImage()">📷 حفظ كصورة</button>
     <button class="danger" onclick="clearAll()">🗑️ مسح الكل</button>
   </div>
+  <div class="sync-status" id="syncStatus">جاري الاتصال بـ Firebase...</div>
 
   <div id="scannerCard" class="card hidden">
     <div id="reader"></div>
@@ -360,13 +369,27 @@
 </div>
 
 <script>
-const STORAGE_KEY = 'sheetTrackerData_v3';
-const SETTINGS_KEY = 'sheetTrackerSettings_v3';
+// ================== Firebase Config ==================
+// حط الـ config بتاعك هنا من Firebase Console
+const firebaseConfig = {
+  apiKey: "AIzaSyBtERkOu2hsl6MpzUvFpFzK7vPFh0Fr7pk",
+  authDomain: "loading-robot-a.firebaseapp.com",
+  databaseURL: "https://loading-robot-a-default-rtdb.firebaseio.com",
+  projectId: "loading-robot-a",
+  storageBucket: "loading-robot-a.firebasestorage.app",
+  messagingSenderId: "782344265939",
+  appId: "1:782344265939:web:51fb58e3da12f04f627426"
+};
 
+// ================== App Logic ==================
+let db = null;
+let rowsRef = null;
+let settingsRef = null;
 let rows = [];
 let html5QrCode = null;
 let scanning = false;
 let lastScanned = null;
+let isRemoteUpdate = false;
 
 const defaults = {
   date: new Date().toISOString().slice(0,10),
@@ -382,11 +405,70 @@ const defaults = {
   airSide: false
 };
 
-function loadSettings() {
+function initFirebase() {
   try {
-    const s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+    if (firebaseConfig.apiKey === "YOUR_API_KEY") {
+      document.getElementById('syncStatus').textContent = '⚠️ حط Firebase Config الأول';
+      document.getElementById('syncStatus').className = 'sync-status';
+      // fallback local
+      loadLocal();
+      return;
+    }
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.database();
+    rowsRef = db.ref('sheets/rows');
+    settingsRef = db.ref('sheets/settings');
+
+    rowsRef.on('value', (snap) => {
+      isRemoteUpdate = true;
+      const val = snap.val();
+      rows = val ? Object.values(val) : [];
+      // sort by loadingTime or keep order
+      renderTable();
+      isRemoteUpdate = false;
+      document.getElementById('syncStatus').textContent = '🟢 متصل - البيانات مشتركة';
+      document.getElementById('syncStatus').className = 'sync-status online';
+    });
+
+    settingsRef.on('value', (snap) => {
+      const s = snap.val();
+      if (s) {
+        Object.assign(defaults, s);
+        updateTotals();
+      }
+    });
+
+  } catch (e) {
+    document.getElementById('syncStatus').textContent = 'خطأ Firebase: ' + e.message;
+    loadLocal();
+  }
+}
+
+function saveRowsToFirebase() {
+  if (!rowsRef || isRemoteUpdate) return;
+  // convert array to object with id as key for easier updates
+  const obj = {};
+  rows.forEach(r => { obj[r.id] = r; });
+  rowsRef.set(obj);
+}
+
+function saveSettingsToFirebase() {
+  if (!settingsRef) return;
+  settingsRef.set(defaults);
+}
+
+function loadLocal() {
+  try {
+    rows = JSON.parse(localStorage.getItem('sheetTrackerData_v3') || '[]');
+  } catch(e) { rows = []; }
+  try {
+    const s = JSON.parse(localStorage.getItem('sheetTrackerSettings_v3') || '{}');
     Object.assign(defaults, s);
   } catch(e) {}
+  renderTable();
+}
+
+function loadSettings() {
   document.getElementById('setDate').value = defaults.date;
   document.getElementById('setThickness').value = defaults.thickness;
   document.getElementById('setLength').value = defaults.length;
@@ -413,7 +495,8 @@ function saveSettings() {
   defaults.branding = document.getElementById('defBranding').checked;
   defaults.airSide = document.getElementById('defAirSide').checked;
 
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(defaults));
+  localStorage.setItem('sheetTrackerSettings_v3', JSON.stringify(defaults));
+  saveSettingsToFirebase();
   updateTotals();
   closeSettings();
 }
@@ -537,16 +620,9 @@ function addManualRow() {
 }
 
 function persist() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(defaults));
-}
-
-function loadData() {
-  try {
-    rows = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-  } catch(e) { rows = []; }
-  loadSettings();
-  renderTable();
+  localStorage.setItem('sheetTrackerData_v3', JSON.stringify(rows));
+  localStorage.setItem('sheetTrackerSettings_v3', JSON.stringify(defaults));
+  saveRowsToFirebase();
 }
 
 function clearAll() {
@@ -638,7 +714,8 @@ function onScanSuccess(decodedText) {
   }
 }
 
-loadData();
+// Start
+initFirebase();
 </script>
 </body>
 </html>
