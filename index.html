@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>نظام تسجيل شيتات الإنتاج</title>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+  :root {
+    --bg: #0f1419;
+    --card: #1a2332;
+    --border: #2d3a4f;
+    --primary: #3b82f6;
+    --primary-hover: #2563eb;
+    --success: #10b981;
+    --danger: #ef4444;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --input-bg: #0f172a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 12px;
+    line-height: 1.4;
+  }
+  .container { max-width: 1400px; margin: 0 auto; }
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  h1 {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: #fff;
+  }
+  .badge {
+    background: var(--primary);
+    color: white;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+  }
+  .controls {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  button, .btn {
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  button:hover, .btn:hover { background: var(--primary-hover); }
+  button.secondary { background: var(--card); border: 1px solid var(--border); }
+  button.secondary:hover { background: #243044; }
+  button.success { background: var(--success); }
+  button.danger { background: var(--danger); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .settings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+  }
+  label {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  input[type="text"], input[type="number"], input[type="date"], input[type="time"], select, textarea {
+    width: 100%;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+  .table-wrap {
+    overflow-x: auto;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--card);
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 1600px;
+    font-size: 0.8rem;
+  }
+  th {
+    background: #15202b;
+    color: var(--muted);
+    font-weight: 600;
+    padding: 10px 6px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  td {
+    padding: 6px 4px;
+    border-bottom: 1px solid var(--border);
+    text-align: center;
+    vertical-align: middle;
+  }
+  tr:hover td { background: rgba(59,130,246,0.05); }
+  td input, td select, td textarea {
+    padding: 4px 6px;
+    font-size: 0.8rem;
+    min-width: 60px;
+  }
+  td input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--success);
+  }
+  .id-cell { font-weight: 700; color: var(--primary); min-width: 50px; }
+  .actions-cell { white-space: nowrap; }
+  .actions-cell button {
+    padding: 4px 8px;
+    font-size: 0.75rem;
+  }
+  #reader {
+    width: 100%;
+    max-width: 400px;
+    margin: 0 auto 12px;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  #reader video { border-radius: 12px; }
+  .hidden { display: none !important; }
+  .status {
+    text-align: center;
+    padding: 8px;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--muted);
+  }
+  .footer-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding: 16px;
+  }
+  .modal-content {
+    background: var(--card);
+    border-radius: 16px;
+    padding: 20px;
+    width: 100%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .modal h2 { margin-bottom: 16px; font-size: 1.2rem; }
+  .modal-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+    justify-content: flex-end;
+  }
+  .check-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 8px;
+  }
+  .check-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+  }
+  @media (max-width: 600px) {
+    h1 { font-size: 1.1rem; }
+    button { padding: 8px 12px; font-size: 0.85rem; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>📋 نظام تسجيل شيتات الإنتاج</h1>
+    <span class="badge" id="rowCount">0 شيت</span>
+  </header>
+
+  <div class="controls">
+    <button id="btnScan" onclick="toggleScanner()">📷 مسح QR</button>
+    <button class="secondary" onclick="addManualRow()">➕ إضافة يدوي</button>
+    <button class="secondary" onclick="openSettings()">⚙️ الإعدادات</button>
+    <button class="success" onclick="exportCSV()">⬇️ تصدير CSV</button>
+    <button class="danger" onclick="clearAll()">🗑️ مسح الكل</button>
+  </div>
+
+  <div id="scannerCard" class="card hidden">
+    <div id="reader"></div>
+    <div class="status" id="scanStatus">وجّه الكاميرا على الـ QR Code</div>
+    <button class="secondary" style="width:100%" onclick="toggleScanner()">إغلاق الماسح</button>
+  </div>
+
+  <div class="table-wrap">
+    <table id="dataTable">
+      <thead>
+        <tr>
+          <th>ID Sheet #</th>
+          <th>Production Date</th>
+          <th>Thickness</th>
+          <th>Length</th>
+          <th>Width</th>
+          <th>Edge Quality</th>
+          <th>No Scratches</th>
+          <th>No Logo</th>
+          <th>No Branding</th>
+          <th>Air Side</th>
+          <th>Loading Time</th>
+          <th>Sheets on ID</th>
+          <th>Actual Loaded</th>
+          <th>WH Signature</th>
+          <th>Quality Signature</th>
+          <th>Comment</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tableBody">
+      </tbody>
+    </table>
+    <div id="emptyState" class="empty-state">لا توجد بيانات. امسح QR أو أضف يدوياً.</div>
+  </div>
+
+  <div class="footer-bar">
+    <span>الرقم التالي: <strong id="nextIdDisplay">1</strong></span>
+    <span id="lastScan">آخر مسح: —</span>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div id="settingsModal" class="modal hidden">
+  <div class="modal-content">
+    <h2>⚙️ الإعدادات الثابتة</h2>
+    <div class="settings-grid">
+      <div>
+        <label>Production Date</label>
+        <input type="date" id="setDate">
+      </div>
+      <div>
+        <label>Thickness</label>
+        <input type="text" id="setThickness" placeholder="مثال: 4mm">
+      </div>
+      <div>
+        <label>Length</label>
+        <input type="text" id="setLength" placeholder="مثال: 3210">
+      </div>
+      <div>
+        <label>Width</label>
+        <input type="text" id="setWidth" placeholder="مثال: 2250">
+      </div>
+      <div>
+        <label>Sheets on ID</label>
+        <input type="number" id="setSheetsOnId" value="1" min="1">
+      </div>
+      <div>
+        <label>Actual Sheet Loaded (افتراضي)</label>
+        <input type="number" id="setActualLoaded" value="1" min="0">
+      </div>
+      <div>
+        <label>الرقم التالي للـ ID</label>
+        <input type="number" id="setNextId" value="1" min="1">
+      </div>
+    </div>
+    <div style="margin-top:16px">
+      <label>القيم الافتراضية للجودة</label>
+      <div class="check-group">
+        <label class="check-item"><input type="checkbox" id="defEdge" checked> Edge Quality</label>
+        <label class="check-item"><input type="checkbox" id="defScratches" checked> No Scratches</label>
+        <label class="check-item"><input type="checkbox" id="defLogo" checked> No Logo</label>
+        <label class="check-item"><input type="checkbox" id="defBranding" checked> No Branding</label>
+        <label class="check-item"><input type="checkbox" id="defAirSide" checked> Air Side</label>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="secondary" onclick="closeSettings()">إلغاء</button>
+      <button onclick="saveSettings()">حفظ</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'sheetTrackerData_v1';
+const SETTINGS_KEY = 'sheetTrackerSettings_v1';
+
+let rows = [];
+let nextId = 1;
+let html5QrCode = null;
+let scanning = false;
+
+const defaults = {
+  date: new Date().toISOString().slice(0,10),
+  thickness: '',
+  length: '',
+  width: '',
+  sheetsOnId: 1,
+  actualLoaded: 1,
+  edge: true,
+  scratches: true,
+  logo: true,
+  branding: true,
+  airSide: true
+};
+
+function loadSettings() {
+  try {
+    const s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+    Object.assign(defaults, s);
+    nextId = s.nextId || 1;
+  } catch(e) {}
+  document.getElementById('setDate').value = defaults.date;
+  document.getElementById('setThickness').value = defaults.thickness;
+  document.getElementById('setLength').value = defaults.length;
+  document.getElementById('setWidth').value = defaults.width;
+  document.getElementById('setSheetsOnId').value = defaults.sheetsOnId;
+  document.getElementById('setActualLoaded').value = defaults.actualLoaded;
+  document.getElementById('setNextId').value = nextId;
+  document.getElementById('defEdge').checked = defaults.edge;
+  document.getElementById('defScratches').checked = defaults.scratches;
+  document.getElementById('defLogo').checked = defaults.logo;
+  document.getElementById('defBranding').checked = defaults.branding;
+  document.getElementById('defAirSide').checked = defaults.airSide;
+  document.getElementById('nextIdDisplay').textContent = nextId;
+}
+
+function saveSettings() {
+  defaults.date = document.getElementById('setDate').value;
+  defaults.thickness = document.getElementById('setThickness').value;
+  defaults.length = document.getElementById('setLength').value;
+  defaults.width = document.getElementById('setWidth').value;
+  defaults.sheetsOnId = parseInt(document.getElementById('setSheetsOnId').value) || 1;
+  defaults.actualLoaded = parseInt(document.getElementById('setActualLoaded').value) || 0;
+  nextId = parseInt(document.getElementById('setNextId').value) || 1;
+  defaults.edge = document.getElementById('defEdge').checked;
+  defaults.scratches = document.getElementById('defScratches').checked;
+  defaults.logo = document.getElementById('defLogo').checked;
+  defaults.branding = document.getElementById('defBranding').checked;
+  defaults.airSide = document.getElementById('defAirSide').checked;
+
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify({...defaults, nextId}));
+  document.getElementById('nextIdDisplay').textContent = nextId;
+  closeSettings();
+}
+
+function openSettings() {
+  loadSettings();
+  document.getElementById('settingsModal').classList.remove('hidden');
+}
+function closeSettings() {
+  document.getElementById('settingsModal').classList.add('hidden');
+}
+
+function nowTime() {
+  const d = new Date();
+  return d.toTimeString().slice(0,8);
+}
+
+function createRow(data = {}) {
+  const id = data.id || nextId++;
+  const row = {
+    id,
+    productionDate: data.productionDate || defaults.date,
+    thickness: data.thickness || defaults.thickness,
+    length: data.length || defaults.length,
+    width: data.width || defaults.width,
+    edge: data.edge !== undefined ? data.edge : defaults.edge,
+    scratches: data.scratches !== undefined ? data.scratches : defaults.scratches,
+    logo: data.logo !== undefined ? data.logo : defaults.logo,
+    branding: data.branding !== undefined ? data.branding : defaults.branding,
+    airSide: data.airSide !== undefined ? data.airSide : defaults.airSide,
+    loadingTime: data.loadingTime || nowTime(),
+    sheetsOnId: data.sheetsOnId || defaults.sheetsOnId,
+    actualLoaded: data.actualLoaded !== undefined ? data.actualLoaded : defaults.actualLoaded,
+    whSig: data.whSig || '',
+    qualitySig: data.qualitySig || '',
+    comment: data.comment || ''
+  };
+  rows.push(row);
+  persist();
+  renderTable();
+  document.getElementById('nextIdDisplay').textContent = nextId;
+  document.getElementById('lastScan').textContent = 'آخر مسح: ' + nowTime();
+  return row;
+}
+
+function renderTable() {
+  const tbody = document.getElementById('tableBody');
+  const empty = document.getElementById('emptyState');
+  document.getElementById('rowCount').textContent = rows.length + ' شيت';
+
+  if (rows.length === 0) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  tbody.innerHTML = rows.map((r, idx) => `
+    <tr data-idx="${idx}">
+      <td class="id-cell">${r.id}</td>
+      <td><input type="date" value="${r.productionDate}" onchange="updateField(${idx},'productionDate',this.value)"></td>
+      <td><input type="text" value="${r.thickness}" onchange="updateField(${idx},'thickness',this.value)" style="width:60px"></td>
+      <td><input type="text" value="${r.length}" onchange="updateField(${idx},'length',this.value)" style="width:70px"></td>
+      <td><input type="text" value="${r.width}" onchange="updateField(${idx},'width',this.value)" style="width:70px"></td>
+      <td><input type="checkbox" ${r.edge?'checked':''} onchange="updateField(${idx},'edge',this.checked)"></td>
+      <td><input type="checkbox" ${r.scratches?'checked':''} onchange="updateField(${idx},'scratches',this.checked)"></td>
+      <td><input type="checkbox" ${r.logo?'checked':''} onchange="updateField(${idx},'logo',this.checked)"></td>
+      <td><input type="checkbox" ${r.branding?'checked':''} onchange="updateField(${idx},'branding',this.checked)"></td>
+      <td><input type="checkbox" ${r.airSide?'checked':''} onchange="updateField(${idx},'airSide',this.checked)"></td>
+      <td><input type="time" value="${r.loadingTime.slice(0,5)}" step="1" onchange="updateField(${idx},'loadingTime',this.value+':00')"></td>
+      <td><input type="number" value="${r.sheetsOnId}" min="0" onchange="updateField(${idx},'sheetsOnId',+this.value)" style="width:55px"></td>
+      <td><input type="number" value="${r.actualLoaded}" min="0" onchange="updateField(${idx},'actualLoaded',+this.value)" style="width:55px"></td>
+      <td><input type="text" value="${r.whSig}" onchange="updateField(${idx},'whSig',this.value)" style="width:80px"></td>
+      <td><input type="text" value="${r.qualitySig}" onchange="updateField(${idx},'qualitySig',this.value)" style="width:80px"></td>
+      <td><input type="text" value="${r.comment}" onchange="updateField(${idx},'comment',this.value)" style="width:100px"></td>
+      <td class="actions-cell">
+        <button class="danger" onclick="deleteRow(${idx})">✕</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function updateField(idx, key, val) {
+  rows[idx][key] = val;
+  persist();
+}
+
+function deleteRow(idx) {
+  if (!confirm('حذف هذا السطر؟')) return;
+  rows.splice(idx, 1);
+  persist();
+  renderTable();
+}
+
+function addManualRow() {
+  createRow();
+}
+
+function persist() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify({...defaults, nextId}));
+}
+
+function loadData() {
+  try {
+    rows = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  } catch(e) { rows = []; }
+  loadSettings();
+  renderTable();
+}
+
+function clearAll() {
+  if (!confirm('مسح كل البيانات؟ لا يمكن التراجع.')) return;
+  rows = [];
+  persist();
+  renderTable();
+}
+
+function exportCSV() {
+  if (rows.length === 0) { alert('لا توجد بيانات'); return; }
+  const headers = ['ID Sheet #','Production Date','Thickness','Length','Width','Edge Quality is good','No Scratches','No Logo Mark','No Branding','Air Side','Loading Time','Sheets on ID','Actual Sheet Loaded','WH Signature','Quality Signature','Comment'];
+  const csvRows = [headers.join(',')];
+  rows.forEach(r => {
+    csvRows.push([
+      r.id,
+      r.productionDate,
+      `"${r.thickness}"`,
+      `"${r.length}"`,
+      `"${r.width}"`,
+      r.edge ? 'Yes' : 'No',
+      r.scratches ? 'Yes' : 'No',
+      r.logo ? 'Yes' : 'No',
+      r.branding ? 'Yes' : 'No',
+      r.airSide ? 'Yes' : 'No',
+      r.loadingTime,
+      r.sheetsOnId,
+      r.actualLoaded,
+      `"${r.whSig}"`,
+      `"${r.qualitySig}"`,
+      `"${r.comment}"`
+    ].join(','));
+  });
+  const blob = new Blob(['\uFEFF' + csvRows.join('\n')], {type: 'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `sheets_${defaults.date || 'export'}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function toggleScanner() {
+  const card = document.getElementById('scannerCard');
+  if (scanning) {
+    if (html5QrCode) {
+      await html5QrCode.stop().catch(()=>{});
+      html5QrCode.clear();
+    }
+    scanning = false;
+    card.classList.add('hidden');
+    return;
+  }
+  card.classList.remove('hidden');
+  scanning = true;
+  document.getElementById('scanStatus').textContent = 'جاري تشغيل الكاميرا...';
+
+  html5QrCode = new Html5Qrcode('reader');
+  try {
+    await html5QrCode.start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: { width: 250, height: 250 } },
+      onScanSuccess,
+      () => {}
+    );
+    document.getElementById('scanStatus').textContent = 'وجّه الكاميرا على الـ QR Code';
+  } catch (err) {
+    document.getElementById('scanStatus').textContent = 'خطأ في الكاميرا: ' + err;
+    scanning = false;
+  }
+}
+
+function onScanSuccess(decodedText) {
+  // أي QR يضيف سطر جديد بالرقم التالي
+  // لو الـ QR فيه رقم، ممكن نستخدمه، لكن حسب الوصف نستخدم التسلسلي
+  createRow();
+  // صوت بسيط
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    osc.frequency.value = 800;
+    osc.connect(ctx.destination);
+    osc.start();
+    setTimeout(() => osc.stop(), 100);
+  } catch(e) {}
+  document.getElementById('scanStatus').textContent = 'تم المسح ✓ ID: ' + (nextId - 1);
+}
+
+// init
+loadData();
+</script>
+</body>
+</html>
