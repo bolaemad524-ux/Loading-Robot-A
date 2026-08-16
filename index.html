@@ -300,6 +300,7 @@
     <table id="dataTable">
       <thead>
         <tr>
+          <th>#</th>
           <th>ID Sheet #</th>
           <th>Production Date</th>
           <th>Thickness</th>
@@ -604,6 +605,7 @@ function renderTable() {
 
   tbody.innerHTML = rows.map((r, idx) => `
     <tr data-idx="${idx}">
+      <td style="font-weight:700;color:var(--muted)">${idx+1}</td>
       <td class="id-cell">${r.id}</td>
       <td><input type="text" value="${r.productionDate || ''}" onchange="updateField(${idx},'productionDate',this.value)" style="direction:ltr;min-width:100px"></td>
       <td><input type="text" value="${r.thickness}" onchange="updateField(${idx},'thickness',this.value)" style="width:60px"></td>
