@@ -670,34 +670,27 @@ function distributeTimes() {
     return;
   }
 
-  // وقت البداية = أول صف فيه وقت، أو أول صف
-  let startSec = null;
-  for (let i=0; i<rows.length; i++) {
-    const s = timeToSeconds(rows[i].loadingTime);
-    if (s !== null) { startSec = s; break; }
-  }
+  // لازم أول Id يكون فيه وقت
+  let startSec = timeToSeconds(rows[0].loadingTime);
   if (startSec === null) {
-    // مفيش أي وقت متسجل → خلي الأول دلوقتي والباقي يتوزع؟ أو نطلب منه يحط وقت للأول
-    alert('حط وقت لأول Id الأول باستخدام 🕒 وبعدين دوس توزيع الوقت');
+    alert('حط وقت لأول Id باستخدام زر 🕒 وبعدين دوس توزيع الوقت');
     return;
   }
 
-  const endSec = timeToSeconds(nowTime());
-  if (endSec === null || endSec <= startSec) {
-    // لو الوقت الحالي قبل البداية، نضيف 24 ساعة تقريبا
-    // أو نبسط: نستخدم الفرق الموجب
+  let endSec = timeToSeconds(nowTime());
+  // لو عدى نص الليل
+  if (endSec < startSec) endSec += 24 * 3600;
+
+  const totalDuration = endSec - startSec;
+  const step = totalDuration / (rows.length - 1);
+
+  for (let i = 0; i < rows.length; i++) {
+    let sec = startSec + step * i;
+    if (sec >= 24 * 3600) sec -= 24 * 3600;
+    rows[i].loadingTime = secondsToTime(sec);
   }
-
-  let end = endSec;
-  if (end <= startSec) end = startSec + rows.length * 60; // fallback دقيقة لكل واحد
-
-  const step = (end - startSec) / (rows.length - 1);
-
-  for (let i=0; i<rows.length; i++) {
-    rows[i].loadingTime = secondsToTime(startSec + step * i);
-  }
-  // آخر واحد بالتأكيد الوقت الحالي
-  rows[rows.length-1].loadingTime = nowTime();
+  // تأكيد آخر واحد = الوقت الحالي بالظبط
+  rows[rows.length - 1].loadingTime = nowTime();
 
   persist();
   renderTable();
