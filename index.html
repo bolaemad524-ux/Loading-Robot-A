@@ -284,6 +284,7 @@
     <button id="btnScan" onclick="toggleScanner()">📷 مسح QR</button>
     <button class="secondary" onclick="addManualRow()">➕ إضافة يدوي</button>
     <button class="secondary" onclick="openSettings()">⚙️ الإعدادات</button>
+    <button class="secondary" onclick="distributeTimes()">⏱️ توزيع الوقت</button>
     <button class="success" onclick="exportImage()">📷 حفظ كصورة</button>
     <button class="danger" onclick="clearAll()">🗑️ مسح الكل</button>
   </div>
@@ -554,7 +555,7 @@ function createRow(data = {}, fromScan = false) {
     logo: data.logo !== undefined ? data.logo : defaults.logo,
     branding: data.branding !== undefined ? data.branding : defaults.branding,
     airSide: data.airSide !== undefined ? data.airSide : defaults.airSide,
-    loadingTime: data.loadingTime || nowTime(),
+    loadingTime: data.loadingTime || '',
     sheetsOnId: data.sheetsOnId || defaults.sheetsOnId,
     actualLoaded: data.actualLoaded !== undefined ? data.actualLoaded : defaults.actualLoaded,
     whSig: data.whSig || '',
@@ -606,7 +607,7 @@ function renderTable() {
       <td><input type="checkbox" ${r.branding?'checked':''} onchange="updateField(${idx},'branding',this.checked)"></td>
       <td><input type="checkbox" ${r.airSide?'checked':''} onchange="updateField(${idx},'airSide',this.checked)"></td>
       <td style="white-space:nowrap">
-        <input type="time" value="${(r.loadingTime||'').slice(0,5)}" step="1" onchange="updateField(${idx},'loadingTime',this.value+':00')" style="width:90px;direction:ltr">
+        <input type="time" value="${r.loadingTime ? r.loadingTime.slice(0,5) : ''}" step="1" onchange="updateField(${idx},'loadingTime',this.value ? this.value+':00' : '')" style="width:90px;direction:ltr">
         <button onclick="setCurrentTime(${idx})" title="وقت الآن" style="padding:2px 6px;font-size:0.75rem;margin-right:2px">🕒</button>
       </td>
       <td><input type="number" value="${r.sheetsOnId}" min="0" onchange="updateField(${idx},'sheetsOnId',+this.value)" style="width:55px"></td>
@@ -631,6 +632,63 @@ function updateField(idx, key, val) {
 function setCurrentTime(idx) {
   const t = nowTime();
   rows[idx].loadingTime = t;
+  persist();
+  renderTable();
+}
+
+function timeToSeconds(t) {
+  if (!t) return null;
+  const p = t.split(':').map(Number);
+  if (p.length < 2) return null;
+  return (p[0]||0)*3600 + (p[1]||0)*60 + (p[2]||0);
+}
+
+function secondsToTime(s) {
+  s = Math.max(0, Math.round(s));
+  const h = Math.floor(s/3600);
+  const m = Math.floor((s%3600)/60);
+  const sec = s % 60;
+  return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');
+}
+
+function distributeTimes() {
+  if (rows.length === 0) { alert('مفيش بيانات'); return; }
+  if (rows.length === 1) {
+    rows[0].loadingTime = nowTime();
+    persist();
+    renderTable();
+    return;
+  }
+
+  // وقت البداية = أول صف فيه وقت، أو أول صف
+  let startSec = null;
+  for (let i=0; i<rows.length; i++) {
+    const s = timeToSeconds(rows[i].loadingTime);
+    if (s !== null) { startSec = s; break; }
+  }
+  if (startSec === null) {
+    // مفيش أي وقت متسجل → خلي الأول دلوقتي والباقي يتوزع؟ أو نطلب منه يحط وقت للأول
+    alert('حط وقت لأول Id الأول باستخدام 🕒 وبعدين دوس توزيع الوقت');
+    return;
+  }
+
+  const endSec = timeToSeconds(nowTime());
+  if (endSec === null || endSec <= startSec) {
+    // لو الوقت الحالي قبل البداية، نضيف 24 ساعة تقريبا
+    // أو نبسط: نستخدم الفرق الموجب
+  }
+
+  let end = endSec;
+  if (end <= startSec) end = startSec + rows.length * 60; // fallback دقيقة لكل واحد
+
+  const step = (end - startSec) / (rows.length - 1);
+
+  for (let i=0; i<rows.length; i++) {
+    rows[i].loadingTime = secondsToTime(startSec + step * i);
+  }
+  // آخر واحد بالتأكيد الوقت الحالي
+  rows[rows.length-1].loadingTime = nowTime();
+
   persist();
   renderTable();
 }
