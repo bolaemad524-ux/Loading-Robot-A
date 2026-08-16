@@ -605,7 +605,10 @@ function renderTable() {
       <td><input type="checkbox" ${r.logo?'checked':''} onchange="updateField(${idx},'logo',this.checked)"></td>
       <td><input type="checkbox" ${r.branding?'checked':''} onchange="updateField(${idx},'branding',this.checked)"></td>
       <td><input type="checkbox" ${r.airSide?'checked':''} onchange="updateField(${idx},'airSide',this.checked)"></td>
-      <td><input type="time" value="${r.loadingTime.slice(0,5)}" step="1" onchange="updateField(${idx},'loadingTime',this.value+':00')"></td>
+      <td style="white-space:nowrap">
+        <input type="time" value="${(r.loadingTime||'').slice(0,5)}" step="1" onchange="updateField(${idx},'loadingTime',this.value+':00')" style="width:90px;direction:ltr">
+        <button onclick="setCurrentTime(${idx})" title="وقت الآن" style="padding:2px 6px;font-size:0.75rem;margin-right:2px">🕒</button>
+      </td>
       <td><input type="number" value="${r.sheetsOnId}" min="0" onchange="updateField(${idx},'sheetsOnId',+this.value)" style="width:55px"></td>
       <td><input type="number" value="${r.actualLoaded}" min="0" onchange="updateField(${idx},'actualLoaded',+this.value); updateTotals()" style="width:55px"></td>
       <td><input type="text" value="${r.whSig}" onchange="updateField(${idx},'whSig',this.value)" style="width:80px"></td>
@@ -623,6 +626,13 @@ function updateField(idx, key, val) {
   rows[idx][key] = val;
   persist();
   if (key === 'actualLoaded' || key === 'length' || key === 'width') updateTotals();
+}
+
+function setCurrentTime(idx) {
+  const t = nowTime();
+  rows[idx].loadingTime = t;
+  persist();
+  renderTable();
 }
 
 function deleteRow(idx) {
