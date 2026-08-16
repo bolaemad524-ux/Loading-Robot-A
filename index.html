@@ -282,11 +282,11 @@
 
   <div class="controls">
     <button id="btnScan" onclick="toggleScanner()">📷 مسح QR</button>
-    <button class="secondary" onclick="addManualRow()">➕ إضافة يدوي</button>
-    <button class="secondary" onclick="openSettings()">⚙️ الإعدادات</button>
-    <button class="secondary" onclick="distributeTimes()">⏱️ توزيع الوقت</button>
+    <button class="secondary" onclick="if(checkPass())addManualRow()">➕ إضافة يدوي</button>
+    <button class="secondary" onclick="if(checkPass())openSettings()">⚙️ الإعدادات</button>
+    <button class="secondary" onclick="if(checkPass())distributeTimes()">⏱️ توزيع الوقت</button>
     <button class="success" onclick="exportImage()">📷 حفظ كصورة</button>
-    <button class="danger" onclick="clearAll()">🗑️ مسح الكل</button>
+    <button class="danger" onclick="if(checkPass())clearAll()">🗑️ مسح الكل</button>
   </div>
   <div class="sync-status" id="syncStatus">جاري الاتصال بـ Firebase...</div>
 
@@ -400,6 +400,7 @@ let html5QrCode = null;
 let scanning = false;
 let lastScanned = null;
 let isRemoteUpdate = false;
+const isViewOnly = new URLSearchParams(location.search).has('view');
 
 const defaults = {
   date: (() => { const d=new Date(); return d.getDate()+'/'+(d.getMonth()+1)+'/'+d.getFullYear(); })(),
@@ -518,6 +519,13 @@ function openSettings() {
 }
 function closeSettings() {
   document.getElementById('settingsModal').classList.add('hidden');
+}
+
+function checkPass() {
+  const p = prompt('اكتب الباسورد:');
+  if (p === '3316') return true;
+  if (p !== null) alert('باسورد غلط');
+  return false;
 }
 
 function nowTime() {
@@ -838,6 +846,22 @@ function onScanSuccess(decodedText) {
 
 // Start
 initFirebase();
+
+if (isViewOnly) {
+  document.querySelector('.controls').style.display = 'none';
+  document.getElementById('scannerCard')?.classList.add('hidden');
+  document.getElementById('syncStatus').textContent = '👁️ وضع القراءة فقط';
+  // بعد ما الجدول يترندر نعمل disable
+  const origRender = renderTable;
+  renderTable = function() {
+    origRender();
+    document.querySelectorAll('#dataTable input, #dataTable button').forEach(el => {
+      el.disabled = true;
+      el.style.pointerEvents = 'none';
+      el.style.opacity = '0.85';
+    });
+  };
+}
 </script>
 </body>
 </html>
