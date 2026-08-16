@@ -261,6 +261,10 @@
     <h1>📋 نظام تسجيل شيتات الإنتاج</h1>
     <div class="stats">
       <div class="stat-box">
+        <div class="stat-label">عدد الـ ID</div>
+        <div class="stat-value" id="idCount">0</div>
+      </div>
+      <div class="stat-box">
         <div class="stat-label">Total Sheets</div>
         <div class="stat-value" id="totalSheets">0</div>
       </div>
@@ -423,7 +427,8 @@ function initFirebase() {
       isRemoteUpdate = true;
       const val = snap.val();
       rows = val ? Object.values(val) : [];
-      // sort by loadingTime or keep order
+      // ترتيب من الأقدم للأحدث (الجديد تحت)
+      rows.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
       renderTable();
       isRemoteUpdate = false;
       document.getElementById('syncStatus').textContent = '🟢 متصل - البيانات مشتركة';
@@ -514,12 +519,19 @@ function nowTime() {
   return d.toTimeString().slice(0,8);
 }
 
-function createRow(data = {}) {
+function createRow(data = {}, fromScan = false) {
   const id = (data.id || '').toString().trim();
   if (!id) {
     alert('مفيش ID');
     return null;
   }
+
+  // فحص حرف F للمسح فقط
+  if (fromScan && !id.toUpperCase().includes('F')) {
+    alert('انه ليس Qr المتعرف عليه');
+    return null;
+  }
+
   if (rows.some(r => r.id === id)) {
     alert('الـ ID ده موجود قبل كده: ' + id);
     return null;
@@ -527,6 +539,7 @@ function createRow(data = {}) {
 
   const row = {
     id,
+    createdAt: Date.now(),
     productionDate: data.productionDate || defaults.date,
     thickness: data.thickness || defaults.thickness,
     length: data.length || defaults.length,
@@ -552,6 +565,8 @@ function createRow(data = {}) {
 }
 
 function updateTotals() {
+  document.getElementById('idCount').textContent = rows.length;
+
   const total = rows.reduce((sum, r) => sum + (Number(r.actualLoaded) || 0), 0);
   document.getElementById('totalSheets').textContent = total;
 
@@ -615,7 +630,7 @@ function deleteRow(idx) {
 function addManualRow() {
   const id = prompt('اكتب الـ ID Sheet #:');
   if (id && id.trim()) {
-    createRow({ id: id.trim() });
+    createRow({ id: id.trim() }, false); // يدوي = مسموح أي حاجة
   }
 }
 
@@ -634,16 +649,41 @@ function clearAll() {
 
 async function exportImage() {
   if (rows.length === 0) { alert('لا توجد بيانات'); return; }
+
   const el = document.getElementById('captureArea');
   const empty = document.getElementById('emptyState');
+  const table = document.getElementById('dataTable');
   empty.style.display = 'none';
+
+  // حفظ الستايل الأصلي
+  const originalOverflow = el.style.overflow;
+  const originalMinWidth = table.style.minWidth;
+  const originalWidth = table.style.width;
+
+  // نوسع الجدول عشان يتصور كامل
+  el.style.overflow = 'visible';
+  table.style.minWidth = 'auto';
+  table.style.width = 'max-content';
+
+  // نضيف هيدر بسيط بالـ Totals فوق الصورة
+  const headerDiv = document.createElement('div');
+  headerDiv.id = 'exportHeader';
+  headerDiv.style.cssText = 'background:#15202b;color:#fff;padding:12px 16px;font-size:14px;direction:ltr;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #2d3a4f;';
+  headerDiv.innerHTML = `
+    <div><strong>Total Sheets:</strong> ${document.getElementById('totalSheets').textContent}</div>
+    <div><strong>QSM:</strong> ${document.getElementById('qsmValue').textContent}</div>
+    <div>${defaults.date || ''}</div>
+  `;
+  el.insertBefore(headerDiv, el.firstChild);
 
   try {
     const canvas = await html2canvas(el, {
       backgroundColor: '#1a2332',
       scale: 2,
       useCORS: true,
-      logging: false
+      logging: false,
+      windowWidth: table.scrollWidth + 40,
+      width: table.scrollWidth + 40
     });
     const link = document.createElement('a');
     link.download = `sheets_${defaults.date || 'export'}_${Date.now()}.png`;
@@ -651,6 +691,13 @@ async function exportImage() {
     link.click();
   } catch (e) {
     alert('خطأ في حفظ الصورة: ' + e.message);
+  } finally {
+    // نرجع كل حاجة زي ما كانت
+    el.style.overflow = originalOverflow;
+    table.style.minWidth = originalMinWidth;
+    table.style.width = originalWidth;
+    const h = document.getElementById('exportHeader');
+    if (h) h.remove();
   }
 }
 
@@ -697,7 +744,7 @@ function onScanSuccess(decodedText) {
   if (id === lastScanned) return;
 
   lastScanned = id;
-  const added = createRow({ id });
+  const added = createRow({ id }, true); // fromScan = true
 
   if (added) {
     try {
