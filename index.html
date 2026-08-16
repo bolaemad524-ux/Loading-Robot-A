@@ -337,7 +337,7 @@
     <div class="settings-grid">
       <div>
         <label>Production Date</label>
-        <input type="date" id="setDate">
+        <input type="text" id="setDate" placeholder="16/8/2026" style="direction:ltr">
       </div>
       <div>
         <label>Thickness</label>
@@ -401,7 +401,7 @@ let lastScanned = null;
 let isRemoteUpdate = false;
 
 const defaults = {
-  date: new Date().toISOString().slice(0,10),
+  date: (() => { const d=new Date(); return d.getDate()+'/'+(d.getMonth()+1)+'/'+d.getFullYear(); })(),
   thickness: '6',
   length: '3660',
   width: '2140',
@@ -596,7 +596,7 @@ function renderTable() {
   tbody.innerHTML = rows.map((r, idx) => `
     <tr data-idx="${idx}">
       <td class="id-cell">${r.id}</td>
-      <td><input type="date" value="${r.productionDate || ''}" onchange="updateField(${idx},'productionDate',this.value)" style="direction:ltr;min-width:135px"></td>
+      <td><input type="text" value="${r.productionDate || ''}" onchange="updateField(${idx},'productionDate',this.value)" style="direction:ltr;min-width:100px"></td>
       <td><input type="text" value="${r.thickness}" onchange="updateField(${idx},'thickness',this.value)" style="width:60px"></td>
       <td><input type="text" value="${r.length}" onchange="updateField(${idx},'length',this.value)" style="width:70px"></td>
       <td><input type="text" value="${r.width}" onchange="updateField(${idx},'width',this.value)" style="width:70px"></td>
@@ -736,7 +736,7 @@ async function toggleScanner() {
       onScanSuccess,
       () => {}
     );
-    document.getElementById('scanStatus').textContent = 'وجّه الكاميرا على الـ QR Code (مرة واحدة فقط)';
+    document.getElementById('scanStatus').textContent = 'وجّه الكاميرا — الكاميرا هتفضل مفتوحة';
   } catch (err) {
     document.getElementById('scanStatus').textContent = 'خطأ في الكاميرا: ' + err + ' — لازم HTTPS';
     scanning = false;
@@ -761,9 +761,11 @@ function onScanSuccess(decodedText) {
       setTimeout(() => osc.stop(), 120);
     } catch(e) {}
 
-    document.getElementById('scanStatus').textContent = 'تم ✓ ID: ' + id;
-    setTimeout(() => stopScanner(), 600);
+    document.getElementById('scanStatus').textContent = 'تم ✓ ID: ' + id + ' — كمل مسح';
   }
+
+  // بعد ثانيتين يسمح بمسح كود تاني (حتى لو نفس الكود)
+  setTimeout(() => { if (lastScanned === id) lastScanned = null; }, 1500);
 }
 
 // Start
